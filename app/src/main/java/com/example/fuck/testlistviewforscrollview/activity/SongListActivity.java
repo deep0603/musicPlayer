@@ -1,0 +1,113 @@
+package com.example.fuck.testlistviewforscrollview.activity;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.Toast;
+
+import com.example.fuck.testlistviewforscrollview.R;
+import com.example.fuck.testlistviewforscrollview.SongList;
+import com.example.fuck.testlistviewforscrollview.adapter.SongListAdapter;
+import com.example.fuck.testlistviewforscrollview.bean.SongListBean;
+import com.itheima.retrofitutils.ItheimaHttp;
+import com.itheima.retrofitutils.Request;
+import com.itheima.retrofitutils.listener.HttpResponseListener;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import retrofit2.Call;
+
+public class SongListActivity extends AppCompatActivity {
+    private ListView listView;
+    private List<SongList> songListList = new ArrayList<>();
+    private List<String> songListId = new ArrayList<>();
+    private List<String> songListUrl = new ArrayList<>();
+    private Toolbar toolbar;
+    private String tag;
+    private  boolean isIntent = false;
+    @Override
+     protected void onCreate(Bundle saveInstanceState){
+        super.onCreate(saveInstanceState);
+        setContentView(R.layout.activty_songlist);
+        listView=findViewById(R.id.listview);
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        querySongListData();
+        //toolbar.setOverflowIcon(getResources().getDrawable(R.drawable.ic_tago));
+        toolbar.inflateMenu(R.menu.toolbar_menu);
+        toolbar.setOnMenuItemClickListener(new Toolbar.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+                switch (menuItem.getItemId()){
+                    case R.id.action_tag:
+                        Intent intent = new Intent(SongListActivity.this,TagActivity.class);
+                        startActivity(intent);
+
+
+                }
+                return false;
+            }
+        });
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(SongListActivity.this,PlayListActivity.class);
+                intent.putExtra("songlistId",songListId.get(position));
+                intent.putExtra("songlistUrl",songListUrl.get(position));
+                startActivity(intent);
+
+            }
+        });
+
+    }
+    private void querySongListData(){
+        Request request = ItheimaHttp.newGetRequest("/top/playlist?limit=100&order=hot");
+        Call call = ItheimaHttp.send(request, new HttpResponseListener<SongListBean>() {
+            @Override
+            public void onResponse(SongListBean songListBean) {
+                addDataForListView(songListBean);
+            }
+        });
+    }
+    private void addDataForListView(SongListBean songListBean){
+        for (SongListBean.PlaylistsBean playlistsBean :songListBean.getPlaylists()){
+            SongList songList = new SongList(playlistsBean.getName(),playlistsBean.getCreator().getNickname(),playlistsBean.getCoverImgUrl());
+            songListId.add(String.valueOf(playlistsBean.getId()));
+            songListUrl.add(playlistsBean.getCoverImgUrl());
+            songListList.add(songList);
+        }
+        SongListAdapter songListAdapter = new SongListAdapter(SongListActivity.this,R.layout.songlist_item,songListList);
+        listView.setAdapter(songListAdapter);
+    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu){
+        getMenuInflater().inflate(R.menu.toolbar_menu,menu);
+        return true;
+    }
+    @Override
+    protected void onResume(){
+        super.onResume();
+        isIntent=getIntent().getBooleanExtra("isIntent",false);
+        tag=getIntent().getStringExtra("tag");
+        if (isIntent){
+            Request request = ItheimaHttp.newGetRequest("/top/playlist?limit=100&order=new"+tag);
+            Call call = ItheimaHttp.send(request, new HttpResponseListener<SongListBean>() {
+                @Override
+                public void onResponse(SongListBean songListBean) {
+                    addDataForListView(songListBean);
+                }
+            });
+            toolbar.setTitle(tag);
+        }
+    }
+
+
+}
